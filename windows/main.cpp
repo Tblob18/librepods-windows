@@ -970,14 +970,7 @@ public:
             return;
         }
         QObject *rootObject = parent->rootObjects().first();
-        if (rootObject) {
-            QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, pageToLoad));
-        }
-        else
-        {
-            LOG_WARN("Root object is null, loading main module");
-            loadMainModule();
-        }
+        QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, pageToLoad));
     }
 
 signals:
@@ -1109,7 +1102,6 @@ int main(int argc, char *argv[]) {
     {
         LOG_ERROR("Failed to load QML module - root objects list is empty");
         LOG_ERROR("Critical error: Unable to load main QML interface. The application cannot start.");
-        app.exit(1);
         return 1;
     }
     LOG_INFO("Main QML module loaded successfully");
