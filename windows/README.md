@@ -15,20 +15,27 @@ A native Windows application to control your AirPods, with support for:
 
 ### Required Software
 
-1. **Qt6** - Version 6.2 or later
+1. **Visual Studio Build Tools** (Required for vcpkg)
+   - Download from [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+   - During installation, select "Desktop development with C++"
+   - Ensure "MSVC v143 - VS 2022 C++ x64/x86 build tools" is checked
+   - Ensure "Windows 11 SDK" (or Windows 10 SDK) is checked
+   - **Note**: You do NOT need the full Visual Studio IDE, just the Build Tools
+
+2. **CMake** - Version 3.16 or later
+   - Download from [cmake.org/download](https://cmake.org/download/)
+   - During installation, select "Add CMake to the system PATH for all users"
+   - Restart your terminal after installation
+
+3. **Qt6** - Version 6.2 or later (installed via vcpkg or manually)
    - Qt6 Base
    - Qt6 Bluetooth
    - Qt6 Multimedia
    - Qt6 Declarative (QML)
    - Qt6 Widgets
 
-2. **OpenSSL** - For cryptographic operations
-   - Can be installed via vcpkg or downloaded from https://slproweb.com/products/Win32OpenSSL.html
-
-3. **CMake** - Version 3.16 or later
-
-4. **Visual Studio 2019 or later** (or MinGW-w64)
-   - C++ compiler with C++17 support
+4. **OpenSSL** - For cryptographic operations
+   - Installed via vcpkg (recommended)
 
 ### Installation Options
 
@@ -40,12 +47,11 @@ git clone https://github.com/Microsoft/vcpkg.git
 cd vcpkg
 .\bootstrap-vcpkg.bat
 
-# Install Qt6 and OpenSSL
-.\vcpkg install qt6-base:x64-windows
-.\vcpkg install qt6-connectivity:x64-windows
-.\vcpkg install qt6-multimedia:x64-windows
-.\vcpkg install qt6-declarative:x64-windows
-.\vcpkg install openssl:x64-windows
+# Update vcpkg to get the latest package definitions
+git pull
+
+# Install Qt6 and OpenSSL (this will take a while as it builds from source)
+.\vcpkg install qt6-base:x64-windows qt6-connectivity:x64-windows qt6-multimedia:x64-windows qt6-declarative:x64-windows openssl:x64-windows
 
 # Integrate with CMake
 .\vcpkg integrate install
@@ -65,6 +71,8 @@ Make sure to install the following components:
 
 ### Using CMake (Command Line)
 
+#### If you installed dependencies via vcpkg:
+
 ```powershell
 # Navigate to the windows directory
 cd windows
@@ -73,7 +81,27 @@ cd windows
 mkdir build
 cd build
 
-# Configure CMake (adjust Qt6 path if needed)
+# Configure CMake with vcpkg toolchain file
+# Replace the path with your actual vcpkg installation path
+cmake .. -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+# Build the project
+cmake --build . --config Release
+
+# The executable will be in build/Release/librepods-windows.exe
+```
+
+#### If you installed Qt manually (not using vcpkg):
+
+```powershell
+# Navigate to the windows directory
+cd windows
+
+# Create build directory
+mkdir build
+cd build
+
+# Configure CMake (adjust Qt6 path to match your installation)
 cmake .. -DCMAKE_PREFIX_PATH="C:/Qt/6.x.x/msvc2019_64"
 
 # Build the project

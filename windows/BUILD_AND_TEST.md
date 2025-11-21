@@ -5,17 +5,30 @@ This document provides detailed instructions for building and testing LibrePods 
 ## Build System Requirements
 
 ### Required Tools
+- **Visual Studio Build Tools 2019/2022** (or full Visual Studio)
+  - Download from [Visual Studio Downloads](https://visualstudio.microsoft.com/downloads/)
+  - Select "Desktop development with C++" workload
+  - Ensure "MSVC v143 - VS 2022 C++ x64/x86 build tools" is checked
+  - Ensure "Windows 11 SDK" (or Windows 10 SDK) is checked
+  - **Important**: Even if using only VS Code, you need these Build Tools for vcpkg to work
+  
 - **CMake** 3.16 or later
+  - Download from [cmake.org/download](https://cmake.org/download/)
+  - Select "Add CMake to the system PATH for all users" during installation
+  - Verify installation: `cmake --version`
+  
 - **Qt 6.2+** with the following modules:
   - Qt6Base
   - Qt6Bluetooth
   - Qt6Multimedia
   - Qt6Declarative (QML)
   - Qt6Widgets
+  
 - **OpenSSL** 1.1.1 or 3.x
+  
 - **C++ Compiler** with C++17 support:
-  - MSVC 2019/2022 (recommended)
-  - MinGW-w64 GCC 8.1+
+  - MSVC 2019/2022 (recommended, required for vcpkg)
+  - MinGW-w64 GCC 8.1+ (alternative, requires different vcpkg triplet)
 
 ### Optional Tools
 - **Qt Creator** - For IDE-based development
@@ -23,7 +36,65 @@ This document provides detailed instructions for building and testing LibrePods 
 
 ## Building from Source
 
-### Method 1: Command Line (CMake)
+### Method 1: Command Line (CMake with vcpkg)
+
+**Recommended for users without Visual Studio IDE**
+
+1. Install Visual Studio Build Tools:
+   - Download from [https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+   - Run installer and select "Desktop development with C++"
+   - Ensure MSVC compiler and Windows SDK are selected
+
+2. Install CMake:
+   - Download from [https://cmake.org/download/](https://cmake.org/download/)
+   - During installation, select "Add CMake to the system PATH for all users"
+   - Restart your terminal after installation
+
+3. Set up vcpkg and install dependencies:
+   ```powershell
+   # Clone vcpkg (do this outside the librepods-windows directory)
+   git clone https://github.com/Microsoft/vcpkg.git
+   cd vcpkg
+   
+   # Bootstrap vcpkg
+   .\bootstrap-vcpkg.bat
+   
+   # Update vcpkg to ensure you have the latest package definitions
+   git pull
+   
+   # Install required libraries (this will take 30-60 minutes)
+   .\vcpkg install qt6-base:x64-windows qt6-connectivity:x64-windows qt6-multimedia:x64-windows qt6-declarative:x64-windows openssl:x64-windows
+   
+   # Integrate vcpkg with CMake
+   .\vcpkg integrate install
+   ```
+   
+   **Note**: The vcpkg integrate command will output a CMake toolchain file path. Save this for the next step.
+
+4. Build LibrePods:
+   ```powershell
+   # Navigate to librepods-windows/windows directory
+   cd path\to\librepods-windows\windows
+   
+   # Create and enter build directory
+   mkdir build
+   cd build
+   
+   # Configure CMake (replace with your actual vcpkg path)
+   cmake .. -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
+   
+   # Build the project
+   cmake --build . --config Release
+   ```
+
+5. The executable will be located at:
+   ```
+   build\Release\librepods-windows.exe
+   ```
+
+### Method 1b: Command Line (CMake with manual Qt installation)
+
+**For users who prefer to install Qt manually**
 
 1. Open PowerShell or Command Prompt
 2. Navigate to the windows directory:
@@ -134,11 +205,61 @@ This document provides detailed instructions for building and testing LibrePods 
 
 ### Troubleshooting Build Issues
 
+#### vcpkg: Package Not Found (qt6-base, qt6-connectivity, etc.)
+```
+error: while looking for qt6-base:x64-windows:
+C:\path\to\vcpkg\ports\qt6-base: error: qt6-base does not exist
+```
+**Solution**: Update vcpkg to get the latest package definitions:
+```powershell
+cd path\to\vcpkg
+git pull
+.\vcpkg update
+# Then retry the install command
+.\vcpkg install qt6-base:x64-windows qt6-connectivity:x64-windows qt6-multimedia:x64-windows qt6-declarative:x64-windows openssl:x64-windows
+```
+
+#### vcpkg: Unable to Find Visual Studio Instance
+```
+error: in triplet x64-windows: Unable to find a valid Visual Studio instance
+Could not locate a complete Visual Studio instance
+```
+**Solution**: Install Visual Studio Build Tools:
+1. Download from [https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+2. Run the installer
+3. Select "Desktop development with C++"
+4. Ensure "MSVC v143 - VS 2022 C++ x64/x86 build tools" is checked on the right panel
+5. Ensure "Windows 11 SDK" (or Windows 10 SDK) is checked
+6. Complete installation and restart your terminal
+
+**Alternative**: If you want to avoid Microsoft compilers, install MinGW-w64 and use:
+```powershell
+.\vcpkg install qt6-base:x64-mingw-dynamic qt6-connectivity:x64-mingw-dynamic ...
+```
+Note: This may require additional project configuration changes.
+
+#### CMake Not Recognized
+```
+cmake: The term 'cmake' is not recognized as a name of a cmdlet, function, script file, or executable program.
+```
+**Solution**: 
+1. Install CMake from [https://cmake.org/download/](https://cmake.org/download/)
+2. During installation, select "Add CMake to the system PATH for all users"
+3. Restart PowerShell/Command Prompt
+4. Verify: `cmake --version`
+
+**Note**: vcpkg downloads its own copy of CMake internally, but this is NOT added to your PATH for manual use.
+
 #### Qt Not Found
 ```
 CMake Error: Could not find Qt6
 ```
-**Solution**: Specify Qt path explicitly:
+**Solution 1 (if using vcpkg)**: Use the vcpkg toolchain file:
+```powershell
+cmake .. -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
+```
+
+**Solution 2 (if installed Qt manually)**: Specify Qt path explicitly:
 ```powershell
 cmake .. -DCMAKE_PREFIX_PATH="C:/Qt/6.x.x/msvc2019_64"
 ```
@@ -147,13 +268,17 @@ cmake .. -DCMAKE_PREFIX_PATH="C:/Qt/6.x.x/msvc2019_64"
 ```
 CMake Error: Could not find OpenSSL
 ```
-**Solution**: Install OpenSSL via vcpkg or manually:
+**Solution 1 (recommended)**: Install OpenSSL via vcpkg:
 ```powershell
-# Using vcpkg
-vcpkg install openssl:x64-windows
-# Then add to cmake:
+# Navigate to vcpkg directory
+cd path\to\vcpkg
+# Install OpenSSL
+.\vcpkg install openssl:x64-windows
+# Then configure cmake with toolchain file:
 cmake .. -DCMAKE_TOOLCHAIN_FILE="path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
 ```
+
+**Solution 2**: Install OpenSSL manually from [https://slproweb.com/products/Win32OpenSSL.html](https://slproweb.com/products/Win32OpenSSL.html) and add to PATH.
 
 #### Missing DLLs at Runtime
 ```

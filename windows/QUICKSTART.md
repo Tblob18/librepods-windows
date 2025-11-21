@@ -21,7 +21,57 @@ Before you start, make sure you have:
 
 See [BUILD_AND_TEST.md](BUILD_AND_TEST.md) for detailed build instructions.
 
-Quick version:
+**Quick version for vcpkg (Recommended for VS Code users):**
+
+1. **Install Visual Studio Build Tools** (required even without Visual Studio IDE):
+   - Download from [https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+   - Select "Desktop development with C++" during installation
+
+2. **Install CMake**:
+   - Download from [https://cmake.org/download/](https://cmake.org/download/)
+   - Select "Add CMake to the system PATH" during installation
+   - Restart your terminal
+
+3. **Set up vcpkg and dependencies**:
+   ```powershell
+   # Clone vcpkg (outside of librepods-windows directory)
+   git clone https://github.com/Microsoft/vcpkg.git
+   cd vcpkg
+   
+   # Bootstrap and update vcpkg
+   .\bootstrap-vcpkg.bat
+   git pull
+   
+   # Install dependencies (takes 30-60 minutes)
+   .\vcpkg install qt6-base:x64-windows qt6-connectivity:x64-windows qt6-multimedia:x64-windows qt6-declarative:x64-windows openssl:x64-windows
+   
+   # Integrate with CMake
+   .\vcpkg integrate install
+   ```
+
+4. **Build LibrePods**:
+   ```powershell
+   # Navigate to librepods-windows\windows directory
+   cd path\to\librepods-windows\windows
+   
+   # Create build directory
+   mkdir build
+   cd build
+   
+   # Configure and build (replace with your vcpkg path)
+   cmake .. -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
+   cmake --build . --config Release
+   
+   # Deploy Qt dependencies
+   cd Release
+   C:\path\to\vcpkg\installed\x64-windows\tools\qt6\bin\windeployqt.exe librepods-windows.exe
+   
+   # Run the application
+   .\librepods-windows.exe
+   ```
+
+**Quick version for manual Qt installation:**
+
 ```powershell
 # Install Qt 6.x from https://www.qt.io/download
 # Open PowerShell in the windows directory
@@ -94,6 +144,39 @@ windeployqt librepods-windows.exe
 3. LibrePods will now launch automatically when you log in
 
 ## Troubleshooting
+
+### Build Issues
+
+#### vcpkg Packages Not Found
+**Problem**: `qt6-base does not exist` or similar errors when installing vcpkg packages.
+
+**Solution**:
+```powershell
+cd path\to\vcpkg
+git pull
+.\vcpkg update
+.\vcpkg install qt6-base:x64-windows qt6-connectivity:x64-windows qt6-multimedia:x64-windows qt6-declarative:x64-windows openssl:x64-windows
+```
+
+#### Visual Studio Instance Not Found
+**Problem**: `Unable to find a valid Visual Studio instance` when installing vcpkg packages.
+
+**Solution**: Install Visual Studio Build Tools (not the full IDE):
+1. Download from [https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+2. Select "Desktop development with C++"
+3. Ensure MSVC compiler and Windows SDK are checked
+4. Complete installation and restart terminal
+
+#### CMake Not Found
+**Problem**: `cmake: The term 'cmake' is not recognized`
+
+**Solution**:
+1. Download CMake from [https://cmake.org/download/](https://cmake.org/download/)
+2. During installation, select "Add CMake to the system PATH for all users"
+3. Restart your PowerShell/terminal
+4. Verify: `cmake --version`
+
+### Runtime Issues
 
 ### AirPods Not Detected
 
