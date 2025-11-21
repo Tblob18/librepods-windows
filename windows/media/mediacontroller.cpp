@@ -269,6 +269,7 @@ MediaController::MediaState MediaController::getCurrentMediaState() const
 QStringList MediaController::getPlayingMediaPlayers()
 {
   QStringList playingServices;
+#ifndef Q_OS_WIN
   QDBusConnection bus = QDBusConnection::sessionBus();
 
   QStringList services = bus.interface()->registeredServiceNames().value();
@@ -297,6 +298,11 @@ QStringList MediaController::getPlayingMediaPlayers()
       LOG_DEBUG("Found playing service: " << service);
     }
   }
+#else
+  // On Windows, media control is handled differently
+  // This functionality requires Windows Media Session API integration
+  LOG_DEBUG("getPlayingMediaPlayers not implemented on Windows yet");
+#endif
 
   return playingServices;
 }
@@ -309,6 +315,7 @@ void MediaController::play()
     return;
   }
 
+#ifndef Q_OS_WIN
   QDBusConnection bus = QDBusConnection::sessionBus();
   int resumedCount = 0;
 
@@ -347,10 +354,16 @@ void MediaController::play()
   {
     LOG_ERROR("Failed to resume any media players via DBus");
   }
+#else
+  // On Windows, use Windows Media Control API
+  LOG_DEBUG("Media playback resume not fully implemented on Windows yet");
+  pausedByAppServices.clear();
+#endif
 }
 
 void MediaController::pause()
 {
+#ifndef Q_OS_WIN
   QDBusConnection bus = QDBusConnection::sessionBus();
   QStringList services = bus.interface()->registeredServiceNames().value();
 
@@ -404,6 +417,10 @@ void MediaController::pause()
   {
     LOG_INFO("No playing media players found to pause");
   }
+#else
+  // On Windows, use Windows Media Control API
+  LOG_DEBUG("Media playback pause not fully implemented on Windows yet");
+#endif
 }
 
 MediaController::~MediaController() {

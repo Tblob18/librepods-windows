@@ -103,7 +103,7 @@ int WindowsAudioController::getSinkVolume(const QString &sinkName)
         return -1;
 
     IMMDevice *device = nullptr;
-    HRESULT hr = m_deviceEnumerator->GetDevice(sinkName.toStdWString().c_str(), &device);
+    HRESULT hr = m_deviceEnumerator->GetDevice(reinterpret_cast<LPCWSTR>(sinkName.utf16()), &device);
     
     if (FAILED(hr))
     {
@@ -151,7 +151,7 @@ bool WindowsAudioController::setSinkVolume(const QString &sinkName, int volumePe
         return false;
 
     IMMDevice *device = nullptr;
-    HRESULT hr = m_deviceEnumerator->GetDevice(sinkName.toStdWString().c_str(), &device);
+    HRESULT hr = m_deviceEnumerator->GetDevice(reinterpret_cast<LPCWSTR>(sinkName.utf16()), &device);
     
     if (FAILED(hr))
     {
