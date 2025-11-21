@@ -463,6 +463,11 @@ public slots:
 private slots:
     void onTrayIconActivated()
     {
+        if (QGuiApplication::topLevelWindows().isEmpty())
+        {
+            loadMainModule();
+            return;
+        }
         QQuickWindow *window = qobject_cast<QQuickWindow *>(
             QGuiApplication::topLevelWindows().constFirst());
         if (window)
@@ -968,7 +973,7 @@ public:
     }
 
     void loadMainModule() {
-        parent->load(QUrl(QStringLiteral("qrc:/linux/Main.qml")));
+        parent->load(QUrl(QStringLiteral("qrc:/qt/qml/windows/Main.qml")));
     }
 
 signals:
