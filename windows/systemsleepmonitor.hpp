@@ -5,7 +5,7 @@
 #include <QDebug>
 
 // Windows stub - DBus not available on Windows
-// Windows sleep monitoring would use Power Management APIs
+// TODO: Implement Windows Power Management APIs for sleep/wake monitoring
 class SystemSleepMonitor : public QObject {
     Q_OBJECT
 
