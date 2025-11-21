@@ -35,6 +35,20 @@ Most features should work with any AirPods. Currently, I've only got AirPods Pro
 
 ## Platform Support
 
+### Windows
+
+**NEW!** Windows port is now available! Control your AirPods Pro on Windows with full feature support.
+
+See the [Windows README](/windows/README.md) for installation and setup instructions.
+
+Key features on Windows:
+- Noise Control modes (Off, Transparency, Adaptive, Noise Cancellation)
+- Conversational Awareness
+- Battery monitoring with system tray integration
+- Auto play/pause on ear detection
+- Auto-start with Windows
+- Windows Power Management integration
+
 ### Linux
 for the old version see the [Linux README](/linux/README.md). (doesn't have many features, maintainer didn't have time to work on it)
 
