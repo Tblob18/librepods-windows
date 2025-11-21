@@ -480,40 +480,12 @@ private slots:
 
     void onOpenApp()
     {
-        if (parent->rootObjects().isEmpty())
-        {
-            LOG_WARN("Root objects list is empty, loading main module");
-            loadMainModule();
-            return;
-        }
-        QObject *rootObject = parent->rootObjects().first();
-        if (rootObject) {
-            QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, "app"));
-        }
-        else
-        {
-            LOG_WARN("Root object is null, loading main module");
-            loadMainModule();
-        }
+        reopenOrLoadModule("app");
     }
 
     void onOpenSettings()
     {
-        if (parent->rootObjects().isEmpty())
-        {
-            LOG_WARN("Root objects list is empty, loading main module");
-            loadMainModule();
-            return;
-        }
-        QObject *rootObject = parent->rootObjects().first();
-        if (rootObject) {
-            QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, "settings"));
-        }
-        else
-        {
-            LOG_WARN("Root object is null, loading main module");
-            loadMainModule();
-        }
+        reopenOrLoadModule("settings");
     }
 
     void sendHandshake() {
@@ -990,6 +962,24 @@ public:
         parent->load(QUrl(QStringLiteral("qrc:/qt/qml/windows/Main.qml")));
     }
 
+    void reopenOrLoadModule(const QString &pageToLoad = "app") {
+        if (parent->rootObjects().isEmpty())
+        {
+            LOG_WARN("Root objects list is empty, loading main module");
+            loadMainModule();
+            return;
+        }
+        QObject *rootObject = parent->rootObjects().first();
+        if (rootObject) {
+            QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, pageToLoad));
+        }
+        else
+        {
+            LOG_WARN("Root object is null, loading main module");
+            loadMainModule();
+        }
+    }
+
 signals:
     void noiseControlModeChanged(NoiseControlMode mode);
     void earDetectionStatusChanged(const QString &status);
@@ -1034,7 +1024,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
     // Install message handler to ensure logs are printed to console on Windows
-    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &, const QString &msg) {
         QByteArray localMsg = msg.toLocal8Bit();
         FILE *output = (type == QtDebugMsg || type == QtInfoMsg) ? stdout : stderr;
         
@@ -1118,7 +1108,9 @@ int main(int argc, char *argv[]) {
     if (engine.rootObjects().isEmpty())
     {
         LOG_ERROR("Failed to load QML module - root objects list is empty");
-        qFatal("Critical error: Unable to load main QML interface. The application cannot start.");
+        LOG_ERROR("Critical error: Unable to load main QML interface. The application cannot start.");
+        app.exit(1);
+        return 1;
     }
     LOG_INFO("Main QML module loaded successfully");
 
@@ -1137,28 +1129,12 @@ int main(int argc, char *argv[]) {
     QObject::connect(&server, &QLocalServer::newConnection, [&]() {
         QLocalSocket* socket = server.nextPendingConnection();
         // Handles Proper Connection
-        QObject::connect(socket, &QLocalSocket::readyRead, [socket, &engine, &trayApp]() {
+        QObject::connect(socket, &QLocalSocket::readyRead, [socket, &trayApp]() {
             QString msg = socket->readAll();
             // Check if the message is "reopen", if so, trigger onOpenApp function
             if (msg == "reopen") {
                 LOG_INFO("Reopening app window");
-                if (engine.rootObjects().isEmpty())
-                {
-                    LOG_WARN("Root objects list is empty, loading main module");
-                    trayApp->loadMainModule();
-                }
-                else
-                {
-                    QObject *rootObject = engine.rootObjects().first();
-                    if (rootObject) {
-                        QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, "app"));
-                    }
-                    else
-                    {
-                        LOG_WARN("Root object is null, loading main module");
-                        trayApp->loadMainModule();
-                    }
-                }
+                trayApp->reopenOrLoadModule("app");
             }
             else
             {
