@@ -1036,7 +1036,6 @@ int main(int argc, char *argv[]) {
     // Install message handler to ensure logs are printed to console on Windows
     qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &context, const QString &msg) {
         QByteArray localMsg = msg.toLocal8Bit();
-        const char *function = context.function ? context.function : "";
         FILE *output = (type == QtDebugMsg || type == QtInfoMsg) ? stdout : stderr;
         
         switch (type) {
@@ -1120,7 +1119,6 @@ int main(int argc, char *argv[]) {
     {
         LOG_ERROR("Failed to load QML module - root objects list is empty");
         qFatal("Critical error: Unable to load main QML interface. The application cannot start.");
-        return 1;
     }
     LOG_INFO("Main QML module loaded successfully");
 
