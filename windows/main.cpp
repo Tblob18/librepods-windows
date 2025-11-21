@@ -271,7 +271,7 @@ public slots:
     {
         if (!socket || !socket->isOpen())
         {
-            LOG_ERROR("Socket nicht offen, Magic Pairing kann nicht gestartet werden");
+            LOG_ERROR("Socket not open, Magic Pairing cannot be started");
             return;
         }
 

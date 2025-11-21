@@ -102,10 +102,15 @@ LRESULT CALLBACK WindowsSleepMonitor::windowProc(HWND hwnd, UINT uMsg, WPARAM wP
             GetWindowLongPtr(hwnd, GWLP_USERDATA)
         );
         
-        // Validate monitor pointer before use
-        if (monitor && !IsBadReadPtr(monitor, sizeof(WindowsSleepMonitor)))
+        // Basic null check - the monitor should be valid as long as the window exists
+        // The window is destroyed in the destructor before the object is deleted
+        if (monitor)
         {
-            monitor->handlePowerBroadcast(wParam, lParam);
+            try {
+                monitor->handlePowerBroadcast(wParam, lParam);
+            } catch (...) {
+                // Silently ignore any exceptions to prevent crashes
+            }
         }
     }
     
