@@ -659,3 +659,6 @@ obj/
 
 # End of https://www.toptal.com/developers/gitignore/api/qt,c++,clion,kotlin,python,android,pycharm,androidstudio,visualstudiocode,linux
 linux/.qmlls.ini
+
+# CodeQL artifacts
+_codeql_detected_source_root
