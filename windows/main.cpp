@@ -480,26 +480,12 @@ private slots:
 
     void onOpenApp()
     {
-        QObject *rootObject = parent->rootObjects().first();
-        if (rootObject) {
-            QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, "app"));
-        }
-        else
-        {
-            loadMainModule();
-        }
+        reopenOrLoadModule("app");
     }
 
     void onOpenSettings()
     {
-        QObject *rootObject = parent->rootObjects().first();
-        if (rootObject) {
-            QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, "settings"));
-        }
-        else
-        {
-            loadMainModule();
-        }
+        reopenOrLoadModule("settings");
     }
 
     void sendHandshake() {
@@ -976,6 +962,17 @@ public:
         parent->load(QUrl(QStringLiteral("qrc:/qt/qml/windows/Main.qml")));
     }
 
+    void reopenOrLoadModule(const QString &pageToLoad = "app") {
+        if (parent->rootObjects().isEmpty())
+        {
+            LOG_WARN("Root objects list is empty, loading main module");
+            loadMainModule();
+            return;
+        }
+        QObject *rootObject = parent->rootObjects().first();
+        QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, pageToLoad));
+    }
+
 signals:
     void noiseControlModeChanged(NoiseControlMode mode);
     void earDetectionStatusChanged(const QString &status);
@@ -1018,6 +1015,31 @@ private:
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
+
+    // Install message handler to ensure logs are printed to console on Windows
+    qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &, const QString &msg) {
+        QByteArray localMsg = msg.toLocal8Bit();
+        FILE *output = (type == QtDebugMsg || type == QtInfoMsg) ? stdout : stderr;
+        
+        switch (type) {
+        case QtDebugMsg:
+            fprintf(output, "[DEBUG] %s\n", localMsg.constData());
+            break;
+        case QtInfoMsg:
+            fprintf(output, "[INFO] %s\n", localMsg.constData());
+            break;
+        case QtWarningMsg:
+            fprintf(output, "[WARNING] %s\n", localMsg.constData());
+            break;
+        case QtCriticalMsg:
+            fprintf(output, "[ERROR] %s\n", localMsg.constData());
+            break;
+        case QtFatalMsg:
+            fprintf(output, "[FATAL] %s\n", localMsg.constData());
+            abort();
+        }
+        fflush(output);
+    });
 
     QSharedMemory sharedMemory;
     sharedMemory.setKey("TcpServer-Key2");
@@ -1074,6 +1096,15 @@ int main(int argc, char *argv[]) {
 
     engine.addImageProvider("qrcode", new QRCodeImageProvider());
     trayApp->loadMainModule();
+    
+    // Verify QML loaded successfully
+    if (engine.rootObjects().isEmpty())
+    {
+        LOG_ERROR("Failed to load QML module - root objects list is empty");
+        LOG_ERROR("Critical error: Unable to load main QML interface. The application cannot start.");
+        return 1;
+    }
+    LOG_INFO("Main QML module loaded successfully");
 
     QLocalServer server;
     QLocalServer::removeServer("app_server");
@@ -1090,19 +1121,12 @@ int main(int argc, char *argv[]) {
     QObject::connect(&server, &QLocalServer::newConnection, [&]() {
         QLocalSocket* socket = server.nextPendingConnection();
         // Handles Proper Connection
-        QObject::connect(socket, &QLocalSocket::readyRead, [socket, &engine, &trayApp]() {
+        QObject::connect(socket, &QLocalSocket::readyRead, [socket, &trayApp]() {
             QString msg = socket->readAll();
             // Check if the message is "reopen", if so, trigger onOpenApp function
             if (msg == "reopen") {
                 LOG_INFO("Reopening app window");
-                QObject *rootObject = engine.rootObjects().first();
-                if (rootObject) {
-                    QMetaObject::invokeMethod(rootObject, "reopen", Q_ARG(QVariant, "app"));
-                }
-                else
-                {
-                    trayApp->loadMainModule();
-                }
+                trayApp->reopenOrLoadModule("app");
             }
             else
             {
