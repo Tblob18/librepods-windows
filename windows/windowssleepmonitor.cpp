@@ -35,15 +35,26 @@ bool WindowsSleepMonitor::initialize()
 {
 #ifdef Q_OS_WIN
     // Create a message-only window for receiving power notifications
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX) };
-    wc.lpfnWndProc = windowProc;
-    wc.hInstance = GetModuleHandle(nullptr);
-    wc.lpszClassName = L"LibrePodsWindowsSleepMonitor";
+    // Use a static flag to register the window class only once
+    static bool classRegistered = false;
     
-    if (!RegisterClassEx(&wc))
+    if (!classRegistered)
     {
-        LOG_ERROR("Failed to register window class");
-        return false;
+        WNDCLASSEX wc = { sizeof(WNDCLASSEX) };
+        wc.lpfnWndProc = windowProc;
+        wc.hInstance = GetModuleHandle(nullptr);
+        wc.lpszClassName = L"LibrePodsWindowsSleepMonitor";
+        
+        if (!RegisterClassEx(&wc))
+        {
+            DWORD error = GetLastError();
+            if (error != ERROR_CLASS_ALREADY_EXISTS)
+            {
+                LOG_ERROR("Failed to register window class, error: " << error);
+                return false;
+            }
+        }
+        classRegistered = true;
     }
 
     m_hwnd = CreateWindowEx(
@@ -91,7 +102,8 @@ LRESULT CALLBACK WindowsSleepMonitor::windowProc(HWND hwnd, UINT uMsg, WPARAM wP
             GetWindowLongPtr(hwnd, GWLP_USERDATA)
         );
         
-        if (monitor)
+        // Validate monitor pointer before use
+        if (monitor && !IsBadReadPtr(monitor, sizeof(WindowsSleepMonitor)))
         {
             monitor->handlePowerBroadcast(wParam, lParam);
         }

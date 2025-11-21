@@ -1,3 +1,6 @@
+#ifndef TRAYICONMANAGER_H
+#define TRAYICONMANAGER_H
+
 #include <QObject>
 #include <QSystemTrayIcon>
 
@@ -61,3 +64,5 @@ private:
 
     void updateIconFromBattery(const QString &status);
 };
+
+#endif // TRAYICONMANAGER_H

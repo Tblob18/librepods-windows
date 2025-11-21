@@ -103,7 +103,8 @@ int WindowsAudioController::getSinkVolume(const QString &sinkName)
         return -1;
 
     IMMDevice *device = nullptr;
-    HRESULT hr = m_deviceEnumerator->GetDevice(reinterpret_cast<LPCWSTR>(sinkName.utf16()), &device);
+    std::wstring deviceIdW = sinkName.toStdWString();
+    HRESULT hr = m_deviceEnumerator->GetDevice(deviceIdW.c_str(), &device);
     
     if (FAILED(hr))
     {
@@ -151,7 +152,8 @@ bool WindowsAudioController::setSinkVolume(const QString &sinkName, int volumePe
         return false;
 
     IMMDevice *device = nullptr;
-    HRESULT hr = m_deviceEnumerator->GetDevice(reinterpret_cast<LPCWSTR>(sinkName.utf16()), &device);
+    std::wstring deviceIdW = sinkName.toStdWString();
+    HRESULT hr = m_deviceEnumerator->GetDevice(deviceIdW.c_str(), &device);
     
     if (FAILED(hr))
     {
@@ -299,6 +301,6 @@ bool WindowsAudioController::setDefaultAudioDevice(const QString &deviceId)
     // Setting default audio device on Windows requires using PolicyConfig COM interface
     // which is undocumented. For now, this is a placeholder.
     Q_UNUSED(deviceId);
-    LOG_DEBUG("setDefaultAudioDevice not fully implemented on Windows");
-    return true;
+    LOG_WARN("setDefaultAudioDevice not implemented on Windows");
+    return false;
 }
