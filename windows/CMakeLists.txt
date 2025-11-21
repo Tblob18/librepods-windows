@@ -85,7 +85,7 @@ target_link_libraries(librepods-windows
     PowrProf
 )
 
-# Set Windows subsystem to console for debugging, change to WINDOWS for release
+# Set Windows subsystem to console for debugging, change to TRUE for release
 set_target_properties(librepods-windows PROPERTIES
     WIN32_EXECUTABLE FALSE
 )
