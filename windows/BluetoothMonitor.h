@@ -2,13 +2,11 @@
 #define BLUETOOTHMONITOR_H
 
 #include <QObject>
-#include <QtDBus/QtDBus>
 
-// Forward declarations for D-Bus types
-typedef QMap<QDBusObjectPath, QMap<QString, QVariantMap>> ManagedObjectList;
-Q_DECLARE_METATYPE(ManagedObjectList)
-
-class BluetoothMonitor : public QObject, protected QDBusContext
+// Windows stub implementation - DBus and BlueZ are not available on Windows
+// This provides a no-op implementation that compiles but doesn't monitor Bluetooth devices
+// Windows Bluetooth monitoring would require Windows Bluetooth API instead
+class BluetoothMonitor : public QObject
 {
     Q_OBJECT
 public:
@@ -21,14 +19,8 @@ signals:
     void deviceConnected(const QString &macAddress, const QString &deviceName);
     void deviceDisconnected(const QString &macAddress, const QString &deviceName);
 
-private slots:
-    void onPropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps);
-
 private:
-    QDBusConnection m_dbus;
-    void registerDBusService();
-    bool isAirPodsDevice(const QString &devicePath);
-    QString getDeviceName(const QString &devicePath);
+    // No implementation needed for Windows stub
 };
 
 #endif // BLUETOOTHMONITOR_H
