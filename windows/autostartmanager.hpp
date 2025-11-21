@@ -132,9 +132,6 @@ private:
 #else
     QString m_autostartFilePath;
 #endif
-
-signals:
-    void autoStartEnabledChanged(bool enabled);
 };
 
 #endif // AUTOSTARTMANAGER_HPP

@@ -441,7 +441,7 @@ QString MediaController::getAudioDeviceName()
 QString MediaController::getDefaultSink()
 {
 #ifdef Q_OS_LINUX
-  return m_pulseAudio ? getDefaultSink() : QString();
+  return m_pulseAudio ? m_pulseAudio->getDefaultSink() : QString();
 #elif defined(Q_OS_WIN)
   return m_windowsAudio ? m_windowsAudio->getDefaultSink() : QString();
 #else
@@ -452,7 +452,7 @@ QString MediaController::getDefaultSink()
 int MediaController::getSinkVolume(const QString &sinkName)
 {
 #ifdef Q_OS_LINUX
-  return m_pulseAudio ? getSinkVolume(sinkName) : -1;
+  return m_pulseAudio ? m_pulseAudio->getSinkVolume(sinkName) : -1;
 #elif defined(Q_OS_WIN)
   return m_windowsAudio ? m_windowsAudio->getSinkVolume(sinkName) : -1;
 #else
@@ -463,7 +463,7 @@ int MediaController::getSinkVolume(const QString &sinkName)
 bool MediaController::setSinkVolume(const QString &sinkName, int volumePercent)
 {
 #ifdef Q_OS_LINUX
-  return m_pulseAudio ? setSinkVolume(sinkName, volumePercent) : false;
+  return m_pulseAudio ? m_pulseAudio->setSinkVolume(sinkName, volumePercent) : false;
 #elif defined(Q_OS_WIN)
   return m_windowsAudio ? m_windowsAudio->setSinkVolume(sinkName, volumePercent) : false;
 #else
@@ -485,7 +485,7 @@ QString MediaController::getCardNameForDevice(const QString &macAddress)
 bool MediaController::setCardProfile(const QString &cardName, const QString &profileName)
 {
 #ifdef Q_OS_LINUX
-  return m_pulseAudio ? setCardProfile(cardName, profileName) : false;
+  return m_pulseAudio ? m_pulseAudio->setCardProfile(cardName, profileName) : false;
 #elif defined(Q_OS_WIN)
   return m_windowsAudio ? m_windowsAudio->setCardProfile(cardName, profileName) : true;
 #else
@@ -496,7 +496,7 @@ bool MediaController::setCardProfile(const QString &cardName, const QString &pro
 bool MediaController::isProfileAvailable(const QString &cardName, const QString &profileName)
 {
 #ifdef Q_OS_LINUX
-  return m_pulseAudio ? isProfileAvailable(cardName, profileName) : false;
+  return m_pulseAudio ? m_pulseAudio->isProfileAvailable(cardName, profileName) : false;
 #elif defined(Q_OS_WIN)
   return m_windowsAudio ? m_windowsAudio->isProfileAvailable(cardName, profileName) : true;
 #else

@@ -41,6 +41,11 @@ public:
 
 signals:
     void notificationsEnabledChanged(bool enabled);
+    void trayClicked();
+    void noiseControlChanged(AirpodsTrayApp::Enums::NoiseControlMode);
+    void conversationalAwarenessToggled(bool enabled);
+    void openApp();
+    void openSettings();
 
 private slots:
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
@@ -55,11 +60,4 @@ private:
     void setupMenuActions();
 
     void updateIconFromBattery(const QString &status);
-
-signals:
-    void trayClicked();
-    void noiseControlChanged(AirpodsTrayApp::Enums::NoiseControlMode);
-    void conversationalAwarenessToggled(bool enabled);
-    void openApp();
-    void openSettings();
 };
