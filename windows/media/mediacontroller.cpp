@@ -17,6 +17,8 @@
 #ifndef Q_OS_WIN
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
+#include <QDBusInterface>
+#include <QDBusReply>
 #endif
 
 MediaController::MediaController(QObject *parent) : QObject(parent) {

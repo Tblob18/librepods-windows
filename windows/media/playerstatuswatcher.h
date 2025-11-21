@@ -1,9 +1,8 @@
 #pragma once
 
 #include <QObject>
-#include <QDBusInterface>
-#include <QDBusServiceWatcher>
 
+// Windows stub - DBus not available on Windows
 class PlayerStatusWatcher : public QObject {
     Q_OBJECT
 public:
@@ -13,13 +12,6 @@ public:
 signals:
     void playbackStatusChanged(const QString &status);
 
-private slots:
-    void onPropertiesChanged(const QString &interface, const QVariantMap &changed, const QStringList &);
-    void onServiceOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
-
 private:
-    void updateStatus();
     QString m_playerService;
-    QDBusInterface *m_iface;
-    QDBusServiceWatcher *m_serviceWatcher;
 };
