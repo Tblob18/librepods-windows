@@ -1,6 +1,7 @@
 #include <QSettings>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QSharedMemory>
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
