@@ -121,13 +121,10 @@ void BluetoothConnectionTest::testLocalDeviceCapabilities()
     QVERIFY(true);
 }
 
-// Uncomment to enable this test
+// NOTE: This is an example/template file and is not built by default.
+// To enable this test, uncomment the lines below and add it to CMakeLists.txt
+// as described in the file header comments.
+
+// Uncomment these two lines to enable this test:
 // QTEST_MAIN(BluetoothConnectionTest)
 // #include "test_bluetooth_example.moc"
-
-int main(int argc, char *argv[])
-{
-    qWarning() << "This is an example test file and is not built by default.";
-    qWarning() << "To enable it, add it to CMakeLists.txt as described in the file header.";
-    return 0;
-}

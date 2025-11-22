@@ -137,7 +137,10 @@ void SystemRequirementsTest::testBluetoothEnabled()
 {
     qDebug() << "Testing if Bluetooth is enabled...";
     
-    m_bluetoothDevice = new QBluetoothLocalDevice(this);
+    // Create device only if not already created
+    if (!m_bluetoothDevice) {
+        m_bluetoothDevice = new QBluetoothLocalDevice(this);
+    }
     
     if (!m_bluetoothDevice->isValid()) {
         qDebug() << "  ⚠ Cannot determine Bluetooth status (device not valid)";

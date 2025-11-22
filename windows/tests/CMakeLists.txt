@@ -45,5 +45,8 @@ endif()
 #     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/tests
 # )
 
-message(STATUS "Test suite configured successfully")
-message(STATUS "Run 'ctest' or 'ctest --verbose' to execute tests")
+# Print test configuration info only in verbose mode
+if(CMAKE_VERBOSE_MAKEFILE OR DEFINED ENV{VERBOSE})
+    message(STATUS "Test suite configured successfully")
+    message(STATUS "Run 'ctest' or 'ctest --verbose' to execute tests")
+endif()
