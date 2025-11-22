@@ -149,6 +149,51 @@ This document provides detailed instructions for building and testing LibrePods 
 
 ## Testing
 
+### Automated System Requirements Test Suite
+
+Before manually testing the application, you can run the automated test suite to verify your system meets all requirements:
+
+#### Building the Tests
+
+```powershell
+# Navigate to the windows directory
+cd path\to\librepods-windows\windows
+
+# Create build directory if it doesn't exist
+mkdir build
+cd build
+
+# Configure with tests enabled (add -DBUILD_TESTS=ON)
+cmake .. -DBUILD_TESTS=ON -DCMAKE_TOOLCHAIN_FILE="C:/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+# Build both the application and tests
+cmake --build . --config Release
+```
+
+#### Running the Tests
+
+```powershell
+# Option 1: Run all tests with CTest
+ctest -C Release --verbose
+
+# Option 2: Run the test executable directly
+cd tests\Release
+.\test_system_requirements.exe
+```
+
+#### What the Tests Check
+
+The system requirements test suite verifies:
+- ✓ Windows version (Windows 10 build 17763/1809 or later, or Windows 11)
+- ✓ Bluetooth adapter presence
+- ✓ Bluetooth is enabled
+- ✓ BLE (Bluetooth Low Energy) support
+- ✓ Qt6 version (6.2 or later)
+- ✓ Required Qt6 modules (Quick, Widgets, Bluetooth, Multimedia)
+- ✓ OpenSSL support for encrypted communication
+
+See [tests/README.md](tests/README.md) for detailed information about the test suite.
+
 ### Manual Testing Checklist
 
 #### 1. Initial Launch
