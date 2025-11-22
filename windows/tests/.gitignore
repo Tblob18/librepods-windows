@@ -1,0 +1,29 @@
+# Build directories
+build/
+build-*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+
+# Test executables
+test_system_requirements
+test_system_requirements.exe
+
+# Qt MOC files
+*.moc
+moc_*.cpp
+
+# Compiled objects
+*.o
+*.obj
+
+# IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
