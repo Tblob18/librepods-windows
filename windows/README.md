@@ -13,6 +13,32 @@ A native Windows application to control your AirPods, with support for:
 
 ## Prerequisites
 
+### Check System Requirements
+
+Before installing, you can verify your system meets all requirements using our automated test suite:
+
+```powershell
+# Clone the repository
+git clone https://github.com/Tblob18/librepods-windows.git
+cd librepods-windows/windows
+
+# Run the system requirements test
+# Option 1: With vcpkg
+.\run_tests.ps1 -VcpkgPath "C:\path\to\vcpkg"
+
+# Option 2: With manually installed Qt
+.\run_tests.ps1 -QtPath "C:\Qt\6.x.x\msvc2019_64"
+```
+
+The test will verify:
+- Windows version compatibility (Windows 10 1809+ or Windows 11)
+- Bluetooth adapter presence and status
+- BLE (Bluetooth Low Energy) support
+- Qt6 version and required modules
+- OpenSSL availability
+
+See [tests/README.md](tests/README.md) for more details.
+
 ### Required Software
 
 1. **Visual Studio Build Tools** (Required for vcpkg)

@@ -90,6 +90,13 @@ set_target_properties(librepods-windows PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
+# Optional: Build test suite
+option(BUILD_TESTS "Build test suite" OFF)
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # Installation
 include(GNUInstallDirs)
 install(TARGETS librepods-windows
