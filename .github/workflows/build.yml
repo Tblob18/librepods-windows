@@ -1,0 +1,152 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Match QML resource prefix to load path (QTP0001 NEW)
+        shell: pwsh
+        run: |
+          $f = "windows/CMakeLists.txt"
+          $t = Get-Content $f -Raw
+          if ($t -notmatch 'QTP0001') {
+            $t = $t -replace 'qt_standard_project_setup\(\)', 'qt_standard_project_setup(REQUIRES 6.7)'
+            Set-Content $f $t -NoNewline
+            Write-Host "Patched qt_standard_project_setup to REQUIRES 6.7"
+          } else {
+            Write-Host "QTP0001 already set, skip"
+          }
+          Select-String -Path $f -Pattern 'qt_standard_project_setup|QTP0001'
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          arch: 'win64_msvc2019_64'
+          modules: 'qtconnectivity qtmultimedia'
+          cache: true
+
+      - name: Install OpenSSL
+        run: choco install openssl -y
+
+      - name: Configure
+        working-directory: windows
+        run: cmake -S . -B build -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+      - name: Build
+        working-directory: windows
+        run: cmake --build build --config Release
+
+      - name: Deploy Qt + MSVC runtime
+        working-directory: windows/build/Release
+        run: windeployqt --release --compiler-runtime --qmldir ../../ --verbose 1 librepods-windows.exe
+
+      - name: Copy MSVC runtime (windeployqt --compiler-runtime is no-op on this runner)
+        shell: pwsh
+        run: |
+          $dest = "windows/build/Release"
+          $dlls = @("msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll", "vcruntime140.dll", "vcruntime140_1.dll", "concrt140.dll")
+          $candidates = @()
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            $vsPath = (& $vswhere -latest -property installationPath) | Select-Object -First 1
+            Write-Host "VS at $vsPath"
+            $candidates += Get-ChildItem "$vsPath\VC\Redist\MSVC" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+              Get-ChildItem (Join-Path $_.FullName "x64\Microsoft.VC14*.CRT") -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+            }
+          }
+          # Fallback: runner's own installed runtime always exists here
+          $candidates += "C:\Windows\System32"
+          Write-Host "Search dirs: $($candidates -join '; ')"
+          $failed = @()
+          foreach ($dll in $dlls) {
+            if (Test-Path "$dest/$dll") { Write-Host "$dll already present, skip"; continue }
+            $src = $candidates | ForEach-Object { Join-Path $_ $dll } | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($src) {
+              Copy-Item $src $dest -Force
+              Write-Host "Copied $dll from $src"
+            } else {
+              Write-Host "WARN: $dll not found anywhere, skipping"
+              if ($dll -in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) { $failed += $dll }
+            }
+          }
+          if ($failed) { throw "Critical MSVC DLLs missing: $($failed -join ', ')" }
+          Get-ChildItem $dest/*.dll | Select-Object Name, Length
+
+      - name: Copy OpenSSL DLLs matching exe imports
+        shell: pwsh
+        run: |
+          $dest = "windows/build/Release"
+          $exe = "$dest/librepods-windows.exe"
+          $raw = [System.IO.File]::ReadAllBytes($exe)
+          $txt = [System.Text.Encoding]::ASCII.GetString($raw)
+          $needed = [regex]::Matches($txt, 'lib(crypto|ssl)-\d+-x64\.dll') | ForEach-Object { $_.Value } | Sort-Object -Unique
+          if (-not $needed) { throw "No OpenSSL DLL names found in exe imports" }
+          Write-Host "Exe requires: $($needed -join ', ')"
+          $found = Get-ChildItem -Path "C:\Program Files\OpenSSL*","C:\ProgramData\chocolatey\lib\openssl*" -Recurse -Include "libcrypto-*-x64.dll","libssl-*-x64.dll" -ErrorAction SilentlyContinue
+          if (-not $found) { throw "OpenSSL DLLs not found" }
+          foreach ($dll in $needed) {
+            $src = $found | Where-Object { $_.Name -eq $dll } | Select-Object -First 1
+            if (-not $src) { throw "Required $dll not found on build machine" }
+            Copy-Item $src.FullName $dest -Force
+            Write-Host "Copied $dll"
+          }
+
+      - name: Clean packaging junk
+        shell: pwsh
+        run: |
+          $release = "windows/build/Release"
+          Get-ChildItem "$release/*" -Include "*.exp","*.lib" -ErrorAction SilentlyContinue | Remove-Item -Force
+          Remove-Item "$release/qmltooling" -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Verify portable bundle
+        shell: pwsh
+        run: |
+          $release = "windows/build/Release"
+          $required = @(
+            "librepods-windows.exe",
+            "Qt6Core.dll",
+            "Qt6Gui.dll",
+            "Qt6Widgets.dll",
+            "Qt6Qml.dll",
+            "Qt6Quick.dll",
+            "Qt6Bluetooth.dll",
+            "Qt6Network.dll",
+            "msvcp140.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll",
+            "platforms/qwindows.dll",
+            "tls/qschannelbackend.dll"
+          )
+          $missing = $required | Where-Object { -not (Test-Path "$release/$_") }
+          if ($missing) { throw "Missing runtime files: $($missing -join ', ')" }
+          # Exe's exact OpenSSL imports must resolve beside the exe
+          $raw = [System.IO.File]::ReadAllBytes("$release/librepods-windows.exe")
+          $txt = [System.Text.Encoding]::ASCII.GetString($raw)
+          $needed = [regex]::Matches($txt, 'lib(crypto|ssl)-\d+-x64\.dll') | ForEach-Object { $_.Value } | Sort-Object -Unique
+          $missingSsl = $needed | Where-Object { -not (Test-Path "$release/$_") }
+          if ($missingSsl) { throw "Missing OpenSSL DLLs: $($missingSsl -join ', ')" }
+          if (Test-Path "$release/Qt6Multimedia.dll") { Write-Host "NOTE: unused Qt6Multimedia.dll deployed, harmless" }
+          Get-ChildItem $release
+
+      - name: Smoke test (exe stays alive = QML loaded)
+        shell: pwsh
+        run: |
+          $dir = "windows/build/Release"
+          $p = Start-Process -FilePath "$dir/librepods-windows.exe" -WorkingDirectory $dir -PassThru
+          if ($p.WaitForExit(15000)) {
+            throw "exe exited quickly with code $($p.ExitCode); QML failed to load"
+          }
+          Write-Host "PASS: process alive after 15s, QML module loaded"
+          Stop-Process -Id $p.Id -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: librepods-windows
+          path: windows/build/Release
