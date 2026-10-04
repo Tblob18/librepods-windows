@@ -7,7 +7,7 @@ ApplicationWindow {
     id: mainWindow
     visible: !airPodsTrayApp.hideOnStart
     width: 400
-    height: 300
+    height: 340
     title: "LibrePods"
     objectName: "mainWindowObject"
 
@@ -77,7 +77,6 @@ ApplicationWindow {
                     radius: 12
                     color: airPodsTrayApp.airpodsConnected ? "#30D158" : "#FF453A"
                     opacity: 0.8
-                    visible: !airPodsTrayApp.airpodsConnected
 
                     Label {
                         anchors.centerIn: parent
@@ -86,6 +85,15 @@ ApplicationWindow {
                         font.pixelSize: 12
                         font.weight: Font.Medium
                     }
+                }
+
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: airPodsTrayApp.airpodsConnected && !airPodsTrayApp.controlAvailable
+                    text: airPodsTrayApp.deviceInfo.deviceName + "\nBattery (approx. 10% steps) and ear status only.\nNoise control isn't supported on Windows."
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: 11
+                    opacity: 0.7
                 }
 
                 // Battery Indicator Row
@@ -133,11 +141,11 @@ ApplicationWindow {
                     model: ["Off", "Noise Cancellation", "Transparency", "Adaptive"]
                     currentIndex: airPodsTrayApp.deviceInfo.noiseControlMode
                     onCurrentIndexChanged: airPodsTrayApp.setNoiseControlModeInt(currentIndex)
-                    visible: airPodsTrayApp.airpodsConnected
+                    visible: airPodsTrayApp.controlAvailable
                 }
 
                 Slider {
-                    visible: airPodsTrayApp.deviceInfo.adaptiveModeActive
+                    visible: airPodsTrayApp.controlAvailable && airPodsTrayApp.deviceInfo.adaptiveModeActive
                     from: 0
                     to: 100
                     stepSize: 1
@@ -159,14 +167,14 @@ ApplicationWindow {
                 }
 
                 Switch {
-                    visible: airPodsTrayApp.airpodsConnected
+                    visible: airPodsTrayApp.controlAvailable
                     text: "Conversational Awareness"
                     checked: airPodsTrayApp.deviceInfo.conversationalAwareness
                     onCheckedChanged: airPodsTrayApp.setConversationalAwareness(checked)
                 }
 
                 Switch {
-                    visible: airPodsTrayApp.airpodsConnected
+                    visible: airPodsTrayApp.controlAvailable
                     text: "Hearing Aid"
                     checked: airPodsTrayApp.deviceInfo.hearingAidEnabled
                     onCheckedChanged: airPodsTrayApp.setHearingAidEnabled(checked)
@@ -242,7 +250,7 @@ ApplicationWindow {
                     }
 
                     Switch {
-                        visible: airPodsTrayApp.airpodsConnected
+                        visible: airPodsTrayApp.controlAvailable
                         text: "One Bud ANC Mode"
                         checked: airPodsTrayApp.deviceInfo.oneBudANCMode
                         onCheckedChanged: airPodsTrayApp.deviceInfo.oneBudANCMode = checked
@@ -270,7 +278,7 @@ ApplicationWindow {
 
                     Row {
                         spacing: 10
-                        visible: airPodsTrayApp.airpodsConnected
+                        visible: airPodsTrayApp.controlAvailable
 
                         TextField {
                             id: newNameField
@@ -286,7 +294,7 @@ ApplicationWindow {
 
                     Row {
                         spacing: 10
-                        visible: airPodsTrayApp.airpodsConnected
+                        visible: airPodsTrayApp.controlAvailable
 
                         TextField {
                             id: newPhoneMacField

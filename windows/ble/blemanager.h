@@ -10,11 +10,16 @@
 
 class QTimer;
 
+AirpodsTrayApp::Enums::AirPodsModel getModelName(quint16 modelId);
+AirpodsTrayApp::Enums::AirPodsModel modelFromProductId(quint16 productId);
+
 class BleInfo
 {
 public:
     QString name;
     QString address;
+    int rssi = 0;
+    quint16 modelId = 0; // Raw model ID from the advertisement (e.g. 0x2720)
     int leftPodBattery = -1; // -1 indicates not available
     int rightPodBattery = -1;
     int caseBattery = -1;

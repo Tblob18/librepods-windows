@@ -18,10 +18,17 @@ AirpodsTrayApp::Enums::AirPodsModel getModelName(quint16 modelId)
         {0x1F20, AirPodsModel::AirPodsMaxUSBC},
         {0x0E20, AirPodsModel::AirPodsPro},
         {0x1420, AirPodsModel::AirPodsPro2Lightning},
-        {0x2420, AirPodsModel::AirPodsPro2USBC}
+        {0x2420, AirPodsModel::AirPodsPro2USBC},
+        {0x2720, AirPodsModel::AirPodsPro3}
     };
 
     return modelMap.value(modelId, AirPodsModel::Unknown);
+}
+
+AirpodsTrayApp::Enums::AirPodsModel modelFromProductId(quint16 productId)
+{
+    // The BLE advertisement carries the Bluetooth product ID little-endian
+    return getModelName(static_cast<quint16>((productId >> 8) | (productId << 8)));
 }
 
 QString getColorName(quint8 colorId)
@@ -89,6 +96,12 @@ BleManager::BleManager(QObject *parent) : QObject(parent)
 
     connect(discoveryAgent, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered,
             this, &BleManager::onDeviceDiscovered);
+    // Repeated advertisements from an already-seen address arrive as deviceUpdated
+    connect(discoveryAgent, &QBluetoothDeviceDiscoveryAgent::deviceUpdated, this,
+            [this](const QBluetoothDeviceInfo &info, QBluetoothDeviceInfo::Fields fields) {
+                if (fields & QBluetoothDeviceInfo::Field::ManufacturerData)
+                    onDeviceDiscovered(info);
+            });
     connect(discoveryAgent, &QBluetoothDeviceDiscoveryAgent::finished,
             this, &BleManager::onScanFinished);
     connect(discoveryAgent, &QBluetoothDeviceDiscoveryAgent::errorOccurred,
@@ -123,27 +136,29 @@ void BleManager::onDeviceDiscovered(const QBluetoothDeviceInfo &info)
     if (info.manufacturerData().contains(0x004C))
     {
         QByteArray data = info.manufacturerData().value(0x004C);
-        // Ensure data is long enough and starts with prefix 0x07 (indicates Proximity Pairing Message)
-        if (data.size() >= 10 && data[0] == 0x07)
+        // Ensure data is a full Proximity Pairing Message (type 0x07, length 0x19)
+        if (data.size() >= 27 && data[0] == 0x07 && static_cast<quint8>(data[1]) == 0x19)
         {
             QString address = info.address().toString();
             BleInfo deviceInfo;
             deviceInfo.name = info.name().isEmpty() ? "AirPods" : info.name();
             deviceInfo.address = address;
+            deviceInfo.rssi = info.rssi();
             deviceInfo.rawData = data.left(data.size() - 16);
             deviceInfo.encryptedPayload = data.mid(data.size() - 16);
 
             // data[1] is the length of the data, so we can skip it
 
             // Check if pairing mode is paired (0x01) or pairing (0x00)
-            if (data[2] == 0x00)
+            if (data[2] != 0x01)
             {
                 return; // Skip pairing mode devices (the values are differently structured)
             }
 
             
             // Parse device model (big-endian: high byte at data[3], low byte at data[4])
-            deviceInfo.modelName = getModelName(static_cast<quint16>(data[4]) | (static_cast<quint8>(data[3]) << 8));
+            deviceInfo.modelId = static_cast<quint16>((static_cast<quint8>(data[3]) << 8) | static_cast<quint8>(data[4]));
+            deviceInfo.modelName = getModelName(deviceInfo.modelId);
 
             // Status byte for primary pod and other flags
             quint8 status = static_cast<quint8>(data[5]);
@@ -217,10 +232,8 @@ void BleManager::onDeviceDiscovered(const QBluetoothDeviceInfo &info)
 
 void BleManager::onScanFinished()
 {
-    if (discoveryAgent->isActive())
-    {
-        discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
-    }
+    // stop() emits canceled(), not finished(), so a finished scan ended on its own: restart it
+    discoveryAgent->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
 }
 
 void BleManager::onErrorOccurred(QBluetoothDeviceDiscoveryAgent::Error error)

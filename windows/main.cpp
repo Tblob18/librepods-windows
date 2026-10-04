@@ -31,6 +31,9 @@
 #include "systemsleepmonitor.hpp"
 #elif defined(Q_OS_WIN)
 #include "windowssleepmonitor.hpp"
+#include "winbtdevices.h"
+#include <QDateTime>
+#include <climits>
 #endif
 
 using namespace AirpodsTrayApp::Enums;
@@ -40,6 +43,7 @@ Q_LOGGING_CATEGORY(librepods, "librepods")
 class AirPodsTrayApp : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool airpodsConnected READ areAirpodsConnected NOTIFY airPodsStatusChanged)
+    Q_PROPERTY(bool controlAvailable READ isControlAvailable NOTIFY airPodsStatusChanged)
     Q_PROPERTY(int earDetectionBehavior READ earDetectionBehavior WRITE setEarDetectionBehavior NOTIFY earDetectionBehaviorChanged)
     Q_PROPERTY(bool crossDeviceEnabled READ crossDeviceEnabled WRITE setCrossDeviceEnabled NOTIFY crossDeviceEnabledChanged)
     Q_PROPERTY(AutoStartManager *autoStartManager READ autoStartManager CONSTANT)
@@ -135,6 +139,20 @@ public:
 
         initializeDBus();
         initializeBluetooth();
+
+#ifdef Q_OS_WIN
+        // Windows cannot open the AAP (L2CAP) control channel, so track the classic
+        // connection via Win32 and read battery/ear status from BLE advertisements.
+        trayManager->setControlsAvailable(false);
+        connect(this, &AirPodsTrayApp::airPodsStatusChanged, this, [this]() {
+            trayManager->setControlsAvailable(isControlAvailable());
+        });
+        m_classicPollTimer = new QTimer(this);
+        m_classicPollTimer->setInterval(3000);
+        connect(m_classicPollTimer, &QTimer::timeout, this, &AirPodsTrayApp::pollClassicConnection);
+        m_classicPollTimer->start();
+        pollClassicConnection();
+#endif
     }
 
     ~AirPodsTrayApp() {
@@ -145,7 +163,10 @@ public:
         delete phoneSocket;
     }
 
-    bool areAirpodsConnected() const { return socket && socket->isOpen() && socket->state() == QBluetoothSocket::SocketState::ConnectedState; }
+    // True when the AAP control channel is open (noise control etc. work)
+    bool isControlAvailable() const { return socket && socket->isOpen() && socket->state() == QBluetoothSocket::SocketState::ConnectedState; }
+    // True when the AirPods are connected, either with the control channel or just as a classic audio device
+    bool areAirpodsConnected() const { return isControlAvailable() || m_classicConnected; }
     int earDetectionBehavior() const { return mediaController->getEarDetectionBehavior(); }
     bool crossDeviceEnabled() const { return CrossDevice.isEnabled; }
     AutoStartManager *autoStartManager() const { return m_autoStartManager; }
@@ -160,6 +181,12 @@ public:
 private:
     bool debugMode;
     bool isConnectedLocally = false;
+
+    // Windows: classic connection state and BLE advertisement filtering
+    bool m_classicConnected = false;
+    quint16 m_classicProductId = 0;
+    QTimer *m_classicPollTimer = nullptr;
+    QHash<QString, QPair<int, qint64>> m_bleRecent; // address -> (rssi, last seen ms)
 
     QQmlApplicationEngine *parent = nullptr;
 
@@ -892,7 +919,121 @@ private slots:
             m_deviceInfo->getBattery()->parseEncryptedPacket(decryptet, device.primaryLeft, device.isThisPodInTheCase, isModelHeadset(m_deviceInfo->model()));
             m_deviceInfo->getEarDetection()->overrideEarDetectionStatus(device.isPrimaryInEar, device.isSecondaryInEar);
         }
+#ifdef Q_OS_WIN
+        else if (m_classicConnected && !isControlAvailable()) {
+            applyUnencryptedAdvertisement(device);
+        }
+#endif
     }
+
+#ifdef Q_OS_WIN
+    // Poll Windows for a connected, paired AirPods device
+    void pollClassicConnection()
+    {
+        if (isControlAvailable())
+            return; // A real AAP connection manages state itself
+
+        const auto devices = WinBt::pairedAppleDevices();
+        const WinBt::AppleAudioDevice *found = nullptr;
+        for (const auto &d : devices)
+        {
+            const bool looksLikeAirPods = modelFromProductId(d.productId) != AirPodsModel::Unknown
+                                          || d.name.contains("AirPods", Qt::CaseInsensitive);
+            if (d.connected && looksLikeAirPods)
+            {
+                found = &d;
+                break;
+            }
+        }
+
+        if (found && !m_classicConnected)
+        {
+            m_classicConnected = true;
+            m_classicProductId = found->productId;
+            m_bleRecent.clear();
+            LOG_INFO("AirPods connected (classic): " << found->name << " " << found->address
+                     << " PID 0x" << QString::number(found->productId, 16));
+
+            m_deviceInfo->setDeviceName(found->name);
+            m_deviceInfo->setBluetoothAddress(found->address);
+            const AirPodsModel model = modelFromProductId(found->productId);
+            if (model != AirPodsModel::Unknown)
+                m_deviceInfo->setModel(model);
+            trayManager->setDeviceName(found->name);
+            trayManager->resetTrayIcon();
+
+            if (!m_bleManager->isScanning())
+                m_bleManager->startScan();
+
+            trayManager->showNotification(tr("AirPods Connected"), found->name);
+            emit airPodsStatusChanged();
+        }
+        else if (!found && m_classicConnected)
+        {
+            m_classicConnected = false;
+            m_classicProductId = 0;
+            m_bleRecent.clear();
+            LOG_INFO("AirPods disconnected (classic)");
+            trayManager->setDeviceName(QString());
+            onDeviceDisconnected(QBluetoothAddress(m_deviceInfo->bluetoothAddress()));
+        }
+    }
+
+    // Use the unencrypted proximity-pairing data (10% battery steps, ear/case flags).
+    // Without the AirPods' keys we can't verify the sender, so we only accept the
+    // connected model and the strongest nearby signal.
+    void applyUnencryptedAdvertisement(const BleInfo &d)
+    {
+        const AirPodsModel expected = modelFromProductId(m_classicProductId);
+        if (expected != AirPodsModel::Unknown && d.modelName != expected)
+            return;
+
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        const int rssi = d.rssi == 0 ? -127 : d.rssi; // 0 = unknown
+        m_bleRecent[d.address] = qMakePair(rssi, now);
+        int best = INT_MIN;
+        for (auto it = m_bleRecent.begin(); it != m_bleRecent.end();)
+        {
+            if (now - it.value().second > 15000)
+            {
+                it = m_bleRecent.erase(it);
+                continue;
+            }
+            best = qMax(best, it.value().first);
+            ++it;
+        }
+        if (rssi < best - 10)
+        {
+            LOG_DEBUG("Ignoring weaker advertisement (likely other AirPods): " << d.address << " rssi " << rssi);
+            return;
+        }
+
+        const AirPodsModel model = expected != AirPodsModel::Unknown ? expected : d.modelName;
+        if (model != AirPodsModel::Unknown)
+            m_deviceInfo->setModel(model);
+
+        const bool batteryChanged = m_deviceInfo->getBattery()->updateFromAdvertisement(
+            d.leftPodBattery, d.leftCharging, d.rightPodBattery, d.rightCharging,
+            d.caseBattery, d.caseCharging, d.primaryLeft, isModelHeadset(model));
+
+        using Status = EarDetection::EarDetectionStatus;
+        auto podStatus = [&](bool inEar, bool otherInEar) {
+            if (d.areBothPodsInCase) return Status::InCase;
+            if (inEar) return Status::InEar;
+            if (d.isOnePodInCase && otherInEar) return Status::InCase;
+            return Status::NotInEar;
+        };
+        const Status left = podStatus(d.isLeftPodInEar, d.isRightPodInEar);
+        const Status right = podStatus(d.isRightPodInEar, d.isLeftPodInEar);
+        m_deviceInfo->getEarDetection()->setStatuses(d.primaryLeft ? left : right, d.primaryLeft ? right : left);
+
+        if (batteryChanged)
+        {
+            m_deviceInfo->updateBatteryStatus();
+            LOG_INFO("Battery (BLE): " << m_deviceInfo->batteryStatus());
+        }
+    }
+#endif
 
 public:
     void handleMediaStateChange(MediaController::MediaState state) {

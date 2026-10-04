@@ -8,6 +8,7 @@
 #include <QFont>
 #include <QColor>
 #include <QActionGroup>
+#include <QPainterPath>
 
 using namespace AirpodsTrayApp::Enums;
 
@@ -36,8 +37,19 @@ void TrayIconManager::showNotification(const QString &title, const QString &mess
 
 void TrayIconManager::updateBatteryStatus(const QString &status)
 {
-    trayIcon->setToolTip("Battery Status: " + status);
+    QString tip = m_deviceName.isEmpty() ? QString("AirPods") : m_deviceName;
+    if (!status.isEmpty())
+        tip += "\n" + QString(status).replace(", ", "\n");
+    trayIcon->setToolTip(tip);
     updateIconFromBattery(status);
+}
+
+void TrayIconManager::setControlsAvailable(bool available)
+{
+    caToggleAction->setVisible(available);
+    noiseControlGroup->setVisible(available);
+    for (QAction *sep : controlSeparators)
+        sep->setVisible(available);
 }
 
 void TrayIconManager::updateNoiseControlState(NoiseControlMode mode)
@@ -76,7 +88,7 @@ void TrayIconManager::setupMenuActions()
     connect(caToggleAction, &QAction::triggered, this, [this](bool checked)
             { emit conversationalAwarenessToggled(checked); });
 
-    trayMenu->addSeparator();
+    controlSeparators.append(trayMenu->addSeparator());
 
     // Noise Control Options
     noiseControlGroup = new QActionGroup(trayMenu);
@@ -107,30 +119,57 @@ void TrayIconManager::setupMenuActions()
 
 void TrayIconManager::updateIconFromBattery(const QString &status)
 {
-    int leftLevel = 0;
-    int rightLevel = 0;
+    // Parse "Left: 80%, Right: 70%, Case: 50%" or "Headset: 80%"; 0 means unavailable
     int minLevel = 0;
-
-    if (!status.isEmpty())
+    for (const QString &part : status.split(", ", Qt::SkipEmptyParts))
     {
-        // Parse the battery status string
-        QStringList parts = status.split(", ");
-        if (parts.size() >= 2) {
-            leftLevel = parts[0].split(": ")[1].replace("%", "").toInt();
-            rightLevel = parts[1].split(": ")[1].replace("%", "").toInt();
-            minLevel = (leftLevel == 0) ? rightLevel : (rightLevel == 0) ? leftLevel
-                                                                    : qMin(leftLevel, rightLevel);
-        } else if (parts.size() == 1) {
-            minLevel = parts[0].split(": ")[1].replace("%", "").toInt();
-        }
+        const QStringList kv = part.split(": ");
+        if (kv.size() != 2 || kv[0] == "Case")
+            continue;
+        const int level = QString(kv[1]).remove('%').toInt();
+        if (level > 0)
+            minLevel = (minLevel == 0) ? level : qMin(minLevel, level);
     }
 
-    QPixmap pixmap(32, 32);
+    if (minLevel <= 0)
+    {
+        trayIcon->setIcon(QIcon(":/icons/assets/airpods.png"));
+        return;
+    }
+
+    const int size = 64;
+    QPixmap pixmap(size, size);
     pixmap.fill(Qt::transparent);
     QPainter painter(&pixmap);
-    painter.setPen(Qt::white);
-    painter.setFont(QFont("Arial", 12, QFont::Bold));
-    painter.drawText(pixmap.rect(), Qt::AlignCenter, QString::number(minLevel) + "%");
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    const QColor fill = minLevel <= 20 ? QColor("#FF453A") : QColor(Qt::white);
+
+    // Battery level bar along the bottom
+    const QRectF barRect(4, size - 12, size - 8, 9);
+    painter.setPen(QPen(QColor(0, 0, 0, 200), 2));
+    painter.setBrush(QColor(0, 0, 0, 90));
+    painter.drawRoundedRect(barRect, 3, 3);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(fill);
+    painter.drawRoundedRect(QRectF(barRect.x() + 1.5, barRect.y() + 1.5,
+                                   (barRect.width() - 3) * minLevel / 100.0, barRect.height() - 3), 2, 2);
+
+    // Percentage digits, as large as fit, with a dark outline for light taskbars
+    const QString text = QString::number(minLevel);
+    QFont font("Segoe UI", 10, QFont::Black);
+    font.setPixelSize(text.size() >= 3 ? 34 : 46);
+    QPainterPath path;
+    path.addText(0, 0, font, text);
+    const QRectF bounds = path.boundingRect();
+    const QRectF textArea(0, 0, size, size - 14);
+    path.translate(textArea.center() - bounds.center());
+    painter.setPen(QPen(QColor(0, 0, 0, 220), 5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPath(path);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(fill);
+    painter.drawPath(path);
     painter.end();
 
     trayIcon->setIcon(QIcon(pixmap));

@@ -39,8 +39,13 @@ public:
     void resetTrayIcon()
     {
         trayIcon->setIcon(QIcon(":/icons/assets/airpods.png"));
-        trayIcon->setToolTip("");
+        trayIcon->setToolTip(m_deviceName.isEmpty() ? QString("LibrePods") : m_deviceName);
     }
+
+    void setDeviceName(const QString &name) { m_deviceName = name; }
+
+    // Show/hide menu items that need the AirPods control channel (unavailable on Windows)
+    void setControlsAvailable(bool available);
 
 signals:
     void notificationsEnabledChanged(bool enabled);
@@ -58,6 +63,8 @@ private:
     QMenu *trayMenu;
     QAction *caToggleAction;
     QActionGroup *noiseControlGroup;
+    QList<QAction *> controlSeparators;
+    QString m_deviceName;
     bool m_notificationsEnabled = true;
 
     void setupMenuActions();
