@@ -217,6 +217,49 @@ public:
         return true;
     }
 
+    // Update from the unencrypted part of a BLE proximity advertisement (10% resolution).
+    // Levels of -1 mean "not reported". Returns true if anything changed.
+    bool updateFromAdvertisement(int left, bool leftCharging, int right, bool rightCharging,
+                                 int caseLevel, bool caseCharging, bool isLeftPodPrimary, bool isHeadset)
+    {
+        auto makeState = [](int level, bool charging) -> BatteryState {
+            if (level < 0) return {};
+            return {static_cast<quint8>(level), charging ? BatteryStatus::Charging : BatteryStatus::Discharging};
+        };
+
+        const QMap<Component, BatteryState> oldStates = states;
+        const Component oldPrimary = primaryPod;
+
+        if (isHeadset)
+        {
+            const bool useLeft = left >= 0;
+            states[Component::Headset] = makeState(useLeft ? left : right, useLeft ? leftCharging : rightCharging);
+            primaryPod = Component::Headset;
+        }
+        else
+        {
+            states[Component::Left] = makeState(left, leftCharging);
+            states[Component::Right] = makeState(right, rightCharging);
+            if (caseLevel >= 0) // Case level is only reported while a pod is in it; keep the last value otherwise
+                states[Component::Case] = makeState(caseLevel, caseCharging);
+            primaryPod = isLeftPodPrimary ? Component::Left : Component::Right;
+            secondaryPod = isLeftPodPrimary ? Component::Right : Component::Left;
+        }
+
+        bool changed = false;
+        for (auto it = states.cbegin(); it != states.cend(); ++it)
+        {
+            const BatteryState old = oldStates.value(it.key());
+            if (old.level != it.value().level || old.status != it.value().status)
+                changed = true;
+        }
+        if (changed)
+            emit batteryStatusChanged();
+        if (oldPrimary != primaryPod)
+            emit primaryChanged();
+        return changed;
+    }
+
     // Get the raw state for a component
     BatteryState getState(Component comp) const
     {
@@ -285,6 +328,6 @@ private:
     }
 
     QMap<Component, BatteryState> states;
-    Component primaryPod;
-    Component secondaryPod;
+    Component primaryPod = Component::Left;
+    Component secondaryPod = Component::Right;
 };

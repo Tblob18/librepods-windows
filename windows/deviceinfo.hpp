@@ -194,14 +194,18 @@ public:
 
     void updateBatteryStatus()
     {
-        int leftLevel = getBattery()->getState(Battery::Component::Left).level;
-        int rightLevel = getBattery()->getState(Battery::Component::Right).level;
-        int caseLevel = getBattery()->getState(Battery::Component::Case).level;
+        // Show unknown/unavailable components as "-" rather than "0%"
+        auto level = [this](Battery::Component comp) {
+            const auto state = getBattery()->getState(comp);
+            if (state.status == Battery::BatteryStatus::Disconnected || state.level == 0)
+                return QString("-");
+            return QString("%1%").arg(state.level);
+        };
         if (getBattery()->getPrimaryPod() == Battery::Component::Headset) {
-            int headsetLevel = getBattery()->getState(Battery::Component::Headset).level;
-            setBatteryStatus(QString("Headset: %1%").arg(headsetLevel));
+            setBatteryStatus(QString("Headset: %1").arg(level(Battery::Component::Headset)));
         } else {
-            setBatteryStatus(QString("Left: %1%, Right: %2%, Case: %3%").arg(leftLevel).arg(rightLevel).arg(caseLevel));
+            setBatteryStatus(QString("Left: %1, Right: %2, Case: %3")
+                                 .arg(level(Battery::Component::Left), level(Battery::Component::Right), level(Battery::Component::Case)));
         }
     }
 

@@ -55,6 +55,17 @@ public:
         emit statusChanged();
     }
 
+    // Set statuses directly; only emits when something changed. Returns true if changed.
+    bool setStatuses(EarDetectionStatus primary, EarDetectionStatus secondary)
+    {
+        if (primary == primaryStatus && secondary == secondaryStatus)
+            return false;
+        primaryStatus = primary;
+        secondaryStatus = secondary;
+        emit statusChanged();
+        return true;
+    }
+
     bool isPrimaryInEar() const { return primaryStatus == EarDetectionStatus::InEar; }
     bool isSecondaryInEar() const { return secondaryStatus == EarDetectionStatus::InEar; }
     bool oneOrMorePodsInCase() const { return primaryStatus == EarDetectionStatus::InCase || secondaryStatus == EarDetectionStatus::InCase; }

@@ -33,7 +33,8 @@ namespace AirpodsTrayApp
             AirPodsMaxLightning,
             AirPodsMaxUSBC,
             AirPods4,
-            AirPods4ANC
+            AirPods4ANC,
+            AirPodsPro3
         };
         Q_ENUM_NS(AirPodsModel)
 
@@ -82,6 +83,7 @@ namespace AirpodsTrayApp
                 case AirPodsModel::AirPodsPro:
                 case AirPodsModel::AirPodsPro2Lightning:
                 case AirPodsModel::AirPodsPro2USBC:
+                case AirPodsModel::AirPodsPro3:
                     return {"podpro.png", "podpro_case.png"};
                 case AirPodsModel::AirPodsMaxLightning:
                 case AirPodsModel::AirPodsMaxUSBC:

@@ -40,11 +40,14 @@ qt_add_executable(librepods-windows
     eardetection.hpp
     windowssleepmonitor.hpp
     windowssleepmonitor.cpp
+    winbtdevices.h
+    winbtdevices.cpp
 )
 
 qt_add_qml_module(librepods-windows
     URI windows
     VERSION 1.0
+    RESOURCE_PREFIX /qt/qml
     QML_FILES
         Main.qml
         BatteryIndicator.qml
@@ -83,6 +86,8 @@ target_link_libraries(librepods-windows
     Ole32
     User32
     PowrProf
+    Bthprops
+    Cfgmgr32
 )
 
 # Set Windows subsystem to console for debugging, change to WINDOWS for release
